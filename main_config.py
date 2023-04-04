@@ -1,8 +1,9 @@
 from aiogram import Bot, Dispatcher, executor, types
+from aiogram.dispatcher.filters import CommandStart
 import asyncio
 import websockets
 import json
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -22,6 +23,16 @@ class User(Base):
     __tablename__ = 'users'
     token = Column(String, primary_key = True)
     name = Column(String)
+    track_id = Column(String)
+    support_id = Column(Integer, ForeignKey("supports.id"))
+
+
+class Support(Base):
+    __tablename__ = "supports"
+    id = Column(Integer, primary_key = True)
+    name = Column(String)
+
+
 
 Base.metadata.create_all(engine)
 
@@ -41,7 +52,7 @@ async def server(websocket, path):
         await bot.send_message(1075894593, message["message"])
         # Add a new user to the database
         if session.query(User).filter_by(token = message["token"]).first() is None:
-            new_user = User(token=message["token"], name = message["title"])
+            new_user = User(token=message["token"], name = message["title"], track_id = message["track_id"])
             session.add(new_user)
             session.commit()
         users = session.query(User).all()
@@ -49,6 +60,16 @@ async def server(websocket, path):
             print(user.token, user.name)
       
 start_server = websockets.serve(server, "localhost", 8765)
+
+
+#handle start command
+@dp.message_handler(commands=['start'])
+async def cmd_start(message: types.Message):
+    if session.query(Support).filter_by(id = message.from_user.id).first() is None:
+        new_support = Support(id = message.from_user.id, name = message.from_user.full_name)
+        session.add(new_support)
+        session.commit()
+        print(f"support {message.from_user} was added")
 
 #handle the support message
 @dp.message_handler()
@@ -59,6 +80,8 @@ async def echo(message: types.Message):
     if client:
         # Send the data to the client
         await client.send(json.dumps(data))
+
+
 
 #start all processes
 asyncio.get_event_loop().run_until_complete(start_server)
