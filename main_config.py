@@ -49,15 +49,14 @@ async def server(websocket, path):
     while True:
         message = await websocket.recv()
         message = json.loads(message)
-        await bot.send_message(1075894593, message["message"])
+        
         # Add a new user to the database
         if session.query(User).filter_by(token = message["token"]).first() is None:
-            new_user = User(token=message["token"], name = message["title"], track_id = message["track_id"])
+            new_user = User(token=message["token"], name = message["title"], track_id = message["track_id"], support_id = session.query(Support).first().id)
             session.add(new_user)
             session.commit()
         users = session.query(User).all()
-        for user in users:
-            print(user.token, user.name)
+        await bot.send_message(session.query(User).filter_by(token = message["token"]).first().support_id, message["message"])
       
 start_server = websockets.serve(server, "localhost", 8765)
 
