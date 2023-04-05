@@ -13,7 +13,7 @@ bot = Bot(TOKEN_API)
 dp = Dispatcher(bot)
 
 #set of connections of websockets
-connections = set()
+connections = {}
 
 #database create and connect
 engine = create_engine('sqlite:///database/data.db')
@@ -45,18 +45,16 @@ session = Session()
 
 #websocket handle
 async def server(websocket, path):
-    connections.add(websocket)
     while True:
         message = await websocket.recv()
         message = json.loads(message)
-        
+        connections[message["token"]] = websocket
         # Add a new user to the database
         if session.query(User).filter_by(token = message["token"]).first() is None:
             new_user = User(token=message["token"], name = message["title"], track_id = message["track_id"], support_id = session.query(Support).first().id)
             session.add(new_user)
             session.commit()
-        users = session.query(User).all()
-        await bot.send_message(session.query(User).filter_by(token = message["token"]).first().support_id, message["message"])
+        await bot.send_message(session.query(User).filter_by(token = message["token"]).first().support_id, message["token"] + " " + message["message"])
       
 start_server = websockets.serve(server, "localhost", 8765)
 
@@ -74,8 +72,10 @@ async def cmd_start(message: types.Message):
 @dp.message_handler()
 async def echo(message: types.Message):
     await message.reply(message.from_user)
-    data={"message": message.text}
-    client = next(iter(connections), None)
+    [token, messageContent] = [message.text.split(" ")[0], " ".join(message.text.split(" ")[1:])]
+    data={"message": messageContent}
+    client = connections[token]
+    print(client)
     if client:
         # Send the data to the client
         await client.send(json.dumps(data))
