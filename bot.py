@@ -1,5 +1,7 @@
 from aiogram import executor, types
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from main_config import bot, dp, owner_id
+import pyperclip
 import asyncio
 import websockets
 import json
@@ -23,7 +25,10 @@ async def server(websocket, path):
             new_user = User(token=message["token"], name = message["title"], track_id = message["track_id"], support_id = session.query(Support).first().id)
             session.add(new_user)
             session.commit()
-        await bot.send_message(session.query(User).filter_by(token = message["token"]).first().support_id, message["token"] + " " + message["message"])
+
+        copyBtn = InlineKeyboardMarkup().add(InlineKeyboardButton(text = "copy token", callback_data = "token : "+message["token"]))
+        await bot.send_message(session.query(User).filter_by(token = message["token"]).first().support_id, message["token"] + " " + message["message"], reply_markup = copyBtn)
+        
       
 start_server = websockets.serve(server, "localhost", 8765)
 
@@ -56,6 +61,14 @@ async def process_password(message: types.Message, state: FSMContext):
         await state.finish()
     else:
         await message.reply("wrong password")
+
+@dp.callback_query_handler(lambda c: c.data.startswith('token : '))
+async def copy_token(callback: CallbackQuery):
+    token = callback.data.split(" : ")[1]
+    pyperclip.copy(token)
+    await callback.answer(f"token '{token}' was copied!")
+
+
 #handle the support message
 @dp.message_handler()
 async def support_msg(message: types.Message):
