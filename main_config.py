@@ -7,4 +7,4 @@ bot = Bot(TOKEN_API)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-owner_id = 1075894593
+owner_id = 6201337905
